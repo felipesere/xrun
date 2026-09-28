@@ -92,6 +92,17 @@ xrun --ignore archive,scratch -- jj st
 xrun --ignore archive --ignore scratch -- jj st
 ```
 
+### `--only NAME,...` run in just these directories
+
+The inverse of `--ignore`, and the two cannot be combined. Comma separated,
+may be repeated. Matches directory names exactly. A named directory runs even
+if it is hidden, and a name that matches nothing prints a warning.
+
+```sh
+xrun --only api,web -- cargo test
+xrun --only api --only web -- cargo test
+```
+
 ### `--omit-empty` show only directories with something to say
 
 Hides rows that exited zero and printed nothing. Ideal for status checks

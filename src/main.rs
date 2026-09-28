@@ -62,8 +62,19 @@ struct Args {
     ///
     ///     xrun --ignore archive,scratch -- jj st
     ///     xrun --ignore archive --ignore scratch -- jj st
-    #[arg(long, value_delimiter = ',', value_name = "NAME,...", verbatim_doc_comment)]
+    #[arg(long, value_delimiter = ',', value_name = "NAME,...", verbatim_doc_comment, conflicts_with = "only")]
     ignore: Vec<String>,
+
+    /// Directory names to run in, skipping every other directory. Comma separated, may be repeated.
+    ///
+    /// Matches directory names exactly. A named directory is included even if
+    /// it is hidden. Names that do not match a directory produce a warning.
+    /// Cannot be combined with --ignore.
+    ///
+    ///     xrun --only api,web -- cargo test
+    ///     xrun --only api --only web -- cargo test
+    #[arg(long, value_delimiter = ',', value_name = "NAME,...", verbatim_doc_comment)]
+    only: Vec<String>,
 
     /// Include directories whose name starts with a dot.
     ///
@@ -262,6 +273,11 @@ fn main() -> ExitCode {
 }
 
 /// Immediate subdirectories of the current directory, sorted by name.
+///
+/// With `--only`, exactly the named directories are returned (hidden or not)
+/// and a warning is printed for any name that does not exist. Otherwise every
+/// directory is returned except hidden ones (unless `--hidden`) and those
+/// listed in `--ignore`.
 fn discover(args: &Args) -> std::io::Result<Vec<PathBuf>> {
     let mut dirs: Vec<PathBuf> = fs::read_dir(".")?
         .filter_map(Result::ok)
@@ -269,11 +285,21 @@ fn discover(args: &Args) -> std::io::Result<Vec<PathBuf>> {
         .filter(|path| path.is_dir())
         .filter(|path| {
             let name = dir_name(path);
+            if !args.only.is_empty() {
+                return args.only.contains(&name);
+            }
             let hidden = name.starts_with('.');
             (args.hidden || !hidden) && !args.ignore.contains(&name)
         })
         .collect();
     dirs.sort();
+
+    for name in &args.only {
+        if !dirs.iter().any(|d| dir_name(d) == *name) {
+            eprintln!("{}", format!("xrun: --only {name}: no such directory").yellow());
+        }
+    }
+
     Ok(dirs)
 }
 
