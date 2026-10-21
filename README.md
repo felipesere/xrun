@@ -115,6 +115,19 @@ xrun --omit-empty -- 'grep -l TODO README.md'
 
 If nothing is left, xrun prints a one-line note instead of an empty table.
 
+### `--only-failure` show only directories that failed
+
+Hides every row that exited zero, whatever it printed. Rows marked
+`timeout`, `signal` or `error` count as failed. Use it when you only care
+about what went wrong.
+
+```sh
+xrun --only-failure -- cargo test
+xrun --only-failure -j 4 -t 1m -- jj git fetch
+```
+
+If nothing is left, xrun prints a one-line note instead of an empty table.
+
 ### `--stream` run sequentially in your terminal
 
 Instead of building a table, run one directory at a time with your own

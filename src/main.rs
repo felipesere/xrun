@@ -150,6 +150,17 @@ struct Args {
     #[arg(long, verbatim_doc_comment)]
     omit_empty: bool,
 
+    /// Show only rows whose command failed.
+    ///
+    /// Hides every directory that exited zero, whatever it printed. Rows
+    /// marked `timeout`, `signal` or `error` count as failed. If nothing is
+    /// left, xrun prints a one-line note instead of an empty table.
+    ///
+    ///     xrun --only-failure -- cargo test
+    ///     xrun --only-failure -j 4 -t 1m -- jj git fetch
+    #[arg(long, verbatim_doc_comment)]
+    only_failure: bool,
+
     /// Command to run in each directory. Put `--` before it if it has flags of its own.
     ///
     /// One argument is run through `sh -c`; several are run directly.
@@ -260,7 +271,7 @@ fn main() -> ExitCode {
         run_stream(&args, &dirs)
     } else {
         let outcomes = run_parallel(&args, &dirs);
-        print_table(&outcomes, args.omit_empty);
+        print_table(&outcomes, args.omit_empty, args.only_failure);
         outcomes.iter().filter(|o| !o.status.ok()).count()
     };
 
@@ -588,7 +599,7 @@ fn install_ctrlc_handler() {
     }
 }
 
-fn print_table(outcomes: &[Outcome], omit_empty: bool) {
+fn print_table(outcomes: &[Outcome], omit_empty: bool, only_failure: bool) {
     let mut table = Table::new();
     table
         .load_style(UTF8_NO_BORDERS)
@@ -614,14 +625,19 @@ fn print_table(outcomes: &[Outcome], omit_empty: bool) {
 
     let shown: Vec<&Outcome> = outcomes
         .iter()
+        .filter(|o| !(only_failure && o.status.ok()))
         .filter(|o| !(omit_empty && o.status.ok() && o.output.is_empty()))
         .collect();
 
     if shown.is_empty() {
-        eprintln!(
-            "all {} directories exited zero with no output",
-            outcomes.len()
-        );
+        if only_failure {
+            eprintln!("all {} directories exited zero", outcomes.len());
+        } else {
+            eprintln!(
+                "all {} directories exited zero with no output",
+                outcomes.len()
+            );
+        }
         return;
     }
 
